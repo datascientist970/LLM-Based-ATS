@@ -1,0 +1,565 @@
+{% extends 'base.html' %}
+{% block content %}
+<div x-data="resumeUploader()" class="max-w-4xl mx-auto space-y-8 animate-fadeIn">
+
+    <!-- Header Section -->
+    <div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-3xl shadow-xl p-8">
+        <div class="text-center">
+            <div class="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-2xl mb-6">
+                <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
+                </svg>
+            </div>
+            <h1 class="text-4xl font-bold text-gray-900 mb-4">
+                AI Resume Analysis
+                <span class="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                    Dashboard
+                </span>
+            </h1>
+            <p class="text-gray-600 text-lg max-w-2xl mx-auto">
+                Upload your resume and job description for intelligent matching, 
+                skill gap analysis, and personalized career insights.
+            </p>
+        </div>
+    </div>
+
+    <!-- Main Upload Form - FIXED: Proper form structure -->
+    <form method="POST" enctype="multipart/form-data" action="{% url 'analyze' %}" 
+          @submit="startAnalysis($event)" class="space-y-8">
+        {% csrf_token %}
+        
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <!-- Left Panel - Resume Upload -->
+            <div class="bg-white/95 backdrop-blur-sm rounded-3xl shadow-xl p-8 border border-gray-100 hover:shadow-2xl transition-all duration-300">
+                <div class="flex items-center gap-4 mb-6">
+                    <div class="flex-shrink-0 w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+                        <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 class="text-2xl font-bold text-gray-900">Resume Upload</h3>
+                        <p class="text-gray-500">Supported: PDF, DOCX, TXT</p>
+                    </div>
+                </div>
+
+                <!-- File Upload Area - FIXED: File input is inside the form -->
+                <div @dragover.prevent="isDragging = true" @dragleave="isDragging = false" @drop.prevent="handleDrop($event)"
+                     :class="{ 'border-blue-400 bg-blue-50': isDragging }"
+                     class="border-2 border-dashed border-gray-300 rounded-2xl p-8 text-center transition-all duration-300 hover:border-blue-400 hover:bg-blue-50/50 cursor-pointer">
+                    
+                    <!-- FIXED: This is the actual file input that gets submitted -->
+                    <input type="file" name="resume" id="resumeInput" required 
+                           @change="handleResume($event)" 
+                           class="hidden" />
+                    
+                    <label for="resumeInput" class="cursor-pointer">
+                        <div class="flex flex-col items-center">
+                            <div class="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mb-4">
+                                <svg class="w-10 h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                                </svg>
+                            </div>
+                            <h4 class="text-lg font-semibold text-gray-800 mb-2">
+                                Drag & drop your resume
+                            </h4>
+                            <p class="text-gray-500 mb-4">or click to browse files</p>
+                            <span class="inline-block px-6 py-2 bg-gray-100 text-gray-700 rounded-lg font-medium">
+                                Choose File
+                            </span>
+                        </div>
+                    </label>
+                </div>
+
+                <!-- File Info -->
+                <div x-show="resumeUploaded" x-cloak class="mt-6 bg-green-50 rounded-xl p-5 border border-green-200">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <div>
+                                <h4 class="font-bold text-green-800">Resume Uploaded</h4>
+                                <p class="text-green-600 text-sm" x-text="resumeFile ? resumeFile.name : ''"></p>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <p class="font-bold text-gray-800 text-lg" x-text="resumeWordCount"></p>
+                            <p class="text-gray-500 text-sm">words</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Panel - Job Description -->
+            <div class="bg-white/95 backdrop-blur-sm rounded-3xl shadow-xl p-8 border border-gray-100 hover:shadow-2xl transition-all duration-300">
+                <div class="flex items-center gap-4 mb-6">
+                    <div class="flex-shrink-0 w-12 h-12 bg-indigo-100 rounded-xl flex items-center justify-center">
+                        <svg class="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 class="text-2xl font-bold text-gray-900">Job Description</h3>
+                        <p class="text-gray-500">Paste or type the job description</p>
+                    </div>
+                </div>
+
+                <!-- Job Description Textarea - FIXED: This textarea is inside the form -->
+                <div class="relative">
+                    <textarea name="job_text" rows="10" 
+                              x-model="jobText" 
+                              @input="countJobWords"
+                              placeholder="Paste the job description here...&#10;&#10;Example:&#10;• Minimum 3 years of experience in software development&#10;• Strong knowledge of Python and Django framework&#10;• Experience with REST APIs and microservices&#10;• Excellent problem-solving skills..."
+                              class="w-full border border-gray-300 rounded-2xl p-5 focus:ring-2 focus:ring-blue-400 focus:border-transparent resize-none text-gray-700 placeholder-gray-400" required></textarea>
+                    
+                    <!-- Word Counter -->
+                    <div class="absolute bottom-4 right-4 bg-white/90 backdrop-blur-sm px-4 py-2 rounded-full shadow-sm">
+                        <span class="font-bold text-gray-800" x-text="jobWordCount"></span>
+                        <span class="text-gray-500"> words</span>
+                    </div>
+                </div>
+
+                <!-- Job Description Tips -->
+                <div class="mt-6 bg-blue-50 rounded-xl p-4 border border-blue-200">
+                    <div class="flex items-start gap-3">
+                        <svg class="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <p class="text-blue-800 text-sm">
+                            <strong>Tip:</strong> Include specific requirements, responsibilities, 
+                            and qualifications for better matching accuracy.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Job Filters Section -->
+        <div class="bg-white/95 backdrop-blur-sm rounded-3xl shadow-xl p-8 border border-gray-100">
+            <h3 class="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-3">
+                <svg class="w-8 h-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+                </svg>
+                Job Preferences (Optional)
+            </h3>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <!-- Job Type -->
+                <div>
+                    <label class="block text-gray-700 font-medium mb-3">Job Type</label>
+                    <select name="job_type" class="w-full border border-gray-300 rounded-xl p-3 focus:ring-2 focus:ring-blue-400 focus:border-transparent bg-white">
+                        <option value="all">All Types</option>
+                        <option value="remote">Remote</option>
+                        <option value="onsite">Onsite</option>
+                        <option value="hybrid">Hybrid</option>
+                    </select>
+                </div>
+
+                <!-- Sponsorship -->
+                <div>
+                    <label class="block text-gray-700 font-medium mb-3">Visa Sponsorship</label>
+                    <select name="sponsorship" class="w-full border border-gray-300 rounded-xl p-3 focus:ring-2 focus:ring-blue-400 focus:border-transparent bg-white">
+                        <option value="no">Not Required</option>
+                        <option value="yes">Required</option>
+                        <option value="either">Either</option>
+                    </select>
+                </div>
+
+                <!-- Nationality -->
+                <div>
+                    <label class="block text-gray-700 font-medium mb-3">Your Nationality</label>
+                    <input type="text" name="nationality" placeholder="e.g., Indian, American"
+                           class="w-full border border-gray-300 rounded-xl p-3 focus:ring-2 focus:ring-blue-400 focus:border-transparent"
+                           list="nationality-list">
+                    <datalist id="nationality-list">
+                        <option value="Indian">Indian</option>
+                        <option value="American">American</option>
+                        <option value="British">British</option>
+                        <option value="Canadian">Canadian</option>
+                        <option value="Australian">Australian</option>
+                        <option value="European">European</option>
+                    </datalist>
+                </div>
+
+                <!-- Location -->
+                <div>
+                    <label class="block text-gray-700 font-medium mb-3">Preferred Location</label>
+                    <input type="text" name="location" placeholder="e.g., Remote, New York"
+                           class="w-full border border-gray-300 rounded-xl p-3 focus:ring-2 focus:ring-blue-400 focus:border-transparent">
+                </div>
+            </div>
+        </div>
+
+        <!-- Submit Button - FIXED: Inside the main form -->
+        <div class="text-center pt-6">
+            <button type="submit" 
+                    :disabled="!resumeUploaded || !jobText"
+                    :class="{ 'opacity-50 cursor-not-allowed': !resumeUploaded || !jobText }"
+                    class="group relative inline-flex items-center justify-center gap-4 px-12 py-5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-2xl hover:from-blue-700 hover:to-indigo-700 shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 font-bold text-lg disabled:hover:transform-none disabled:hover:shadow-xl">
+                <svg class="w-6 h-6 group-hover:rotate-12 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+                Start AI Analysis
+                <span class="absolute -top-2 -right-2 bg-yellow-500 text-white text-xs font-bold px-3 py-1 rounded-full animate-pulse">
+                    AI
+                </span>
+            </button>
+            <p class="text-gray-500 mt-4">
+                Analysis typically takes 15-30 seconds depending on document size
+            </p>
+        </div>
+    </form>
+
+    <!-- Loading Overlay -->
+    <div x-show="loading" x-cloak 
+         class="fixed inset-0 bg-white/95 backdrop-blur-lg flex flex-col items-center justify-center z-50">
+        <!-- Animated Background -->
+        <div class="absolute inset-0 overflow-hidden">
+            <div class="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-100 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-pulse"></div>
+            <div class="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-100 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-pulse" style="animation-delay: 1s;"></div>
+        </div>
+
+        <!-- Content -->
+        <div class="relative z-10 text-center max-w-lg">
+            <!-- Logo/Icon -->
+            <div class="mb-8">
+                <div class="inline-flex items-center justify-center w-24 h-24 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full animate-pulse">
+                    <svg class="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                    </svg>
+                </div>
+            </div>
+
+            <!-- Progress Text -->
+            <h2 class="text-3xl font-bold text-gray-900 mb-2" x-text="step"></h2>
+            <p class="text-gray-600 mb-8">Analyzing your profile with AI</p>
+
+            <!-- Progress Bar -->
+            <div class="w-full max-w-md mx-auto">
+                <div class="flex justify-between text-sm text-gray-600 mb-2">
+                    <span>Processing</span>
+                    <span x-text="progress + '%'"></span>
+                </div>
+                <div class="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
+                    <div class="h-full bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full transition-all duration-500"
+                         :style="'width: ' + progress + '%'"></div>
+                </div>
+            </div>
+
+            <!-- Loading Dots -->
+            <div class="flex justify-center gap-2 mt-8">
+                <div class="w-3 h-3 bg-blue-500 rounded-full animate-bounce" style="animation-delay: 0s"></div>
+                <div class="w-3 h-3 bg-blue-500 rounded-full animate-bounce" style="animation-delay: 0.2s"></div>
+                <div class="w-3 h-3 bg-blue-500 rounded-full animate-bounce" style="animation-delay: 0.4s"></div>
+            </div>
+
+            <!-- Estimated Time -->
+            <p class="text-gray-500 text-sm mt-8">
+                Estimated time: <span class="font-semibold" x-text="estimatedTime"></span> seconds
+            </p>
+        </div>
+    </div>
+
+</div>
+
+<script>
+function resumeUploader() {
+    return {
+        resumeUploaded: false,
+        resumeWordCount: 0,
+        resumeFile: null,
+        jobText: '',
+        jobWordCount: 0,
+        loading: false,
+        progress: 0,
+        step: 'Initializing Analysis',
+        isDragging: false,
+        estimatedTime: 25,
+
+        handleDrop(event) {
+            this.isDragging = false;
+            const files = event.dataTransfer.files;
+            if (files.length > 0) {
+                const file = files[0];
+                if (this.isValidFile(file)) {
+                    // Set the file input value
+                    const fileInput = document.getElementById('resumeInput');
+                    const dataTransfer = new DataTransfer();
+                    dataTransfer.items.add(file);
+                    fileInput.files = dataTransfer.files;
+                    
+                    // Trigger the change event
+                    fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+                } else {
+                    this.showError('Please upload PDF, DOCX, or TXT files only.');
+                }
+            }
+        },
+
+        handleResume(event) {
+            const file = event.target.files[0];
+            if (file && this.isValidFile(file)) {
+                this.handleFile(file);
+            } else {
+                this.showError('Please upload a valid resume file.');
+            }
+        },
+
+        isValidFile(file) {
+            const validTypes = ['application/pdf', 
+                               'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 
+                               'text/plain'];
+            const validExtensions = ['.pdf', '.docx', '.txt'];
+            const fileExtension = '.' + file.name.split('.').pop().toLowerCase();
+            
+            return validTypes.includes(file.type) || validExtensions.includes(fileExtension);
+        },
+
+        handleFile(file) {
+            this.resumeFile = file;
+            const reader = new FileReader();
+            
+            reader.onload = (e) => {
+                let text = e.target.result;
+                // Clean and count words
+                text = text.replace(/[^\w\s]/gi, ' ').replace(/\s+/g, ' ').trim();
+                this.resumeWordCount = text.split(/\s+/).filter(w => w.length > 0).length;
+                this.resumeUploaded = true;
+                
+                // Update estimated time based on file size
+                this.updateEstimatedTime(file.size);
+            };
+            
+            reader.readAsText(file);
+        },
+
+        countJobWords() {
+            const cleanText = this.jobText.replace(/[^\w\s]/gi, ' ').replace(/\s+/g, ' ').trim();
+            this.jobWordCount = cleanText.split(/\s+/).filter(w => w.length > 0).length;
+        },
+
+        updateEstimatedTime(fileSize) {
+            // Simple estimation: 15s base + 1s per 10KB
+            const sizeInKB = fileSize / 1024;
+            this.estimatedTime = Math.min(60, Math.max(15, 15 + Math.floor(sizeInKB / 10)));
+        },
+
+        async startAnalysis(event) {
+            event.preventDefault();
+            
+            // Get form elements
+            const form = event.target;
+            const fileInput = document.getElementById('resumeInput');
+            const jobTextarea = form.querySelector('textarea[name="job_text"]');
+            
+            // Validate inputs
+            if (!fileInput.files[0] || !jobTextarea.value.trim()) {
+                this.showError('Please upload a resume and enter job description.');
+                return;
+            }
+
+            this.loading = true;
+            
+            // Animated steps
+            const steps = [
+                { text: "Uploading Resume", duration: 1000 },
+                { text: "Extracting Information", duration: 1500 },
+                { text: "Analyzing Skills", duration: 2000 },
+                { text: "Matching Job Requirements", duration: 1500 },
+                { text: "Generating Insights", duration: 1000 },
+                { text: "Preparing Results", duration: 500 }
+            ];
+            
+            let totalDuration = steps.reduce((sum, step) => sum + step.duration, 0);
+            let elapsed = 0;
+            
+            for (let i = 0; i < steps.length; i++) {
+                this.step = steps[i].text;
+                this.progress = Math.floor(((i + 1) / steps.length) * 100);
+                
+                await this.delay(steps[i].duration);
+                elapsed += steps[i].duration;
+                
+                // Update estimated time
+                const remaining = Math.max(1, Math.floor((totalDuration - elapsed) / 1000));
+                this.estimatedTime = remaining;
+            }
+            
+            // FIXED: Submit the form normally - it will include all form data
+            // No need to manually create FormData
+            form.submit();
+        },
+
+        delay(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        },
+
+        showError(message) {
+            alert(message);
+        }
+    }
+}
+</script>
+
+<style>
+@keyframes fadeIn {
+    from { 
+        opacity: 0; 
+        transform: translateY(20px); 
+    }
+    to { 
+        opacity: 1; 
+        transform: translateY(0); 
+    }
+}
+
+@keyframes bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+.animate-fadeIn {
+    animation: fadeIn 0.6s ease-out forwards;
+}
+
+.animate-bounce {
+    animation: bounce 1s infinite;
+}
+
+.animate-pulse {
+    animation: pulse 2s infinite;
+}
+
+[x-cloak] {
+    display: none !important;
+}
+
+/* Custom scrollbar for textarea */
+textarea::-webkit-scrollbar {
+    width: 8px;
+}
+
+textarea::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+textarea::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 4px;
+}
+
+textarea::-webkit-scrollbar-thumb:hover {
+    background: #a1a1a1;
+}
+
+/* Smooth transitions */
+.transition-all {
+    transition-property: all;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    transition-duration: 300ms;
+}
+
+/* Custom scrollbar for page */
+::-webkit-scrollbar {
+    width: 10px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: linear-gradient(to bottom, #3b82f6, #8b5cf6);
+    border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(to bottom, #2563eb, #7c3aed);
+}
+
+/* Gradient text */
+.gradient-text {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+/* File upload hover effects */
+.drag-active {
+    border-color: #3b82f6 !important;
+    background-color: rgba(59, 130, 246, 0.05) !important;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .grid-cols-4 {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .max-w-4xl {
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+    
+    .text-4xl {
+        font-size: 2rem;
+    }
+    
+    .text-2xl {
+        font-size: 1.5rem;
+    }
+}
+
+/* Glass morphism effects */
+.backdrop-blur-sm {
+    backdrop-filter: blur(8px);
+}
+
+.backdrop-blur-lg {
+    backdrop-filter: blur(16px);
+}
+
+/* Loading overlay */
+.fixed {
+    position: fixed;
+}
+
+.inset-0 {
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+}
+
+.z-50 {
+    z-index: 50;
+}
+
+/* Focus styles */
+.focus\:ring-2:focus {
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5);
+}
+
+.focus\:ring-blue-400:focus {
+    --tw-ring-color: rgba(96, 165, 250, 1);
+}
+
+/* Disabled button styles */
+.disabled\:opacity-50:disabled {
+    opacity: 0.5;
+}
+
+.disabled\:cursor-not-allowed:disabled {
+    cursor: not-allowed;
+}
+</style>
+{% endblock %}
