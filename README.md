@@ -105,5 +105,7 @@ An intelligent, full-stack web application that revolutionizes resume analysis a
 
 1. **Clone the repository**
 ```bash
-git clone https://github.com/yourusername/ai-ats-system.git
-cd ai-ats-system
+git clone https://github.com/datascientist970/LLM-Based-ATS
+.git
+cd /LLM-Based-ATS
+
